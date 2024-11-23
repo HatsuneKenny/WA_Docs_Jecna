@@ -1,65 +1,40 @@
 const express = require("express");
-const { WebSocketServer } = require("ws");
+const http = require("http");
+const WebSocket = require("ws");
 
 const app = express();
 const PORT = 8080;
 
-// Statické soubory (klientská část)
+// Slouží statické soubory z adresáře 'public'
 app.use(express.static("public"));
 
-// WebSocket server
-const wss = new WebSocketServer({ noServer: true });
+// Vytvoření HTTP serveru
+const server = http.createServer(app);
 
-// Uchovávání uživatelů a dat
-let clients = {};
-let documentText = "";
+// Nastavení WebSocket serveru
+const wss = new WebSocket.Server({ server });
 
-// Připojení klientů
-wss.on("connection", (ws, req) => {
-    const userId = Date.now();
-    clients[userId] = ws;
+// WebSocket logika
+wss.on("connection", (ws) => {
+    console.log("Nový WebSocket klient připojen.");
 
-    console.log(`Uživatel připojen: ${userId}`);
-
-    // Odeslání aktuálního stavu dokumentu
-    ws.send(JSON.stringify({ type: "init", text: documentText, users: Object.keys(clients) }));
-
-    // Zpracování zpráv od klientů
     ws.on("message", (message) => {
-        const data = JSON.parse(message);
+        console.log("Přijatá zpráva od klienta:", message);
 
-        if (data.type === "text-update") {
-            documentText = data.text;
-            // Distribuce změn všem klientům
-            Object.values(clients).forEach(client => {
-                client.send(JSON.stringify({ type: "text-update", text: documentText }));
-            });
-        }
-
-        if (data.type === "cursor-update") {
-            Object.values(clients).forEach(client => {
-                client.send(JSON.stringify({ type: "cursor-update", userId, cursor: data.cursor }));
-            });
-        }
-    });
-
-    // Odpojení klienta
-    ws.on("close", () => {
-        console.log(`Uživatel odpojen: ${userId}`);
-        delete clients[userId];
-        // Informace pro ostatní
-        Object.values(clients).forEach(client => {
-            client.send(JSON.stringify({ type: "user-disconnect", userId }));
+        // Distribuce zprávy všem klientům
+        wss.clients.forEach((client) => {
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(message);
+            }
         });
     });
+
+    ws.on("close", () => {
+        console.log("Klient odpojen.");
+    });
 });
 
-// Spojení HTTP serveru s WebSocket
-const server = app.listen(PORT, () => {
-    console.log(`Server běží na http://localhost:${PORT}`);
-});
-server.on("upgrade", (req, socket, head) => {
-    wss.handleUpgrade(req, socket, head, (ws) => {
-        wss.emit("connection", ws, req);
-    });
+// Server naslouchá na všech IP adresách
+server.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server běží na http://0.0.0.0:${PORT}`);
 });
