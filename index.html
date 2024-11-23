@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ječná Docs</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        textarea { width: 100%; height: 80vh; }
+        #users { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Ječná Docs</h1>
+    <textarea id="document" placeholder="Začněte psát..."></textarea>
+    <div id="users">Připojení uživatelé: <span id="user-list"></span></div>
+
+    <script>
+        const ws = new WebSocket("ws://localhost:8080");
+        const textarea = document.getElementById("document");
+        const userList = document.getElementById("user-list");
+
+        let userId;
+
+        ws.onopen = () => console.log("Připojeno k serveru.");
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+
+            if (data.type === "init") {
+                textarea.value = data.text;
+                userList.textContent = data.users.join(", ");
+            }
+
+            if (data.type === "text-update") {
+                textarea.value = data.text;
+            }
+
+            if (data.type === "user-disconnect") {
+                userList.textContent = userList.textContent.replace(`${data.userId}, `, "");
+            }
+        };
+
+        ws.onclose = () => console.log("Odpojeno od serveru.");
+
+        textarea.addEventListener("input", () => {
+            const text = textarea.value;
+            ws.send(JSON.stringify({ type: "text-update", text }));
+        });
+    </script>
+</body>
+</html>
