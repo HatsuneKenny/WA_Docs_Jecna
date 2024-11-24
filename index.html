@@ -2,155 +2,134 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Live Document</title>
+  <title>Collaborative Document Editor</title>
   <style>
+    /* Stylování editoru, kurzoru a zvýrazněného textu */
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Arial', sans-serif;
       margin: 0;
       padding: 0;
-      background-color: #f5f5f5;
+      background: #f5f5f5;
       display: flex;
       justify-content: center;
-      align-items: flex-start;
+      align-items: center;
       height: 100vh;
-      overflow: hidden;
-      flex-direction: column;
+      width: 100vw;
     }
     .container {
       width: 80%;
       max-width: 800px;
       height: 80%;
-      background-color: white;
-      border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-      overflow-y: auto;
+      background: white;
       padding: 20px;
-      display: flex;
-      flex-direction: column;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      border-radius: 5px;
+      overflow: hidden;
+      position: relative;
     }
     #editor {
       width: 100%;
-      height: 100%;
-      border: 1px solid #ccc;
-      border-radius: 4px;
+      height: 90%;
       padding: 10px;
       box-sizing: border-box;
+      border: 1px solid #ddd;
+      outline: none;
       white-space: pre-wrap;
       word-wrap: break-word;
-      font-family: "Courier New", Courier, monospace;
+      font-family: 'Courier New', monospace;
     }
     .cursor {
       position: absolute;
       width: 2px;
       height: 20px;
-      background-color: red;
-      pointer-events: none;
-    }
-    #status {
-      margin-top: 20px;
-      font-size: 14px;
-    }
-    #user-list {
-      margin-top: 10px;
-      font-size: 14px;
+      background: red;
     }
     .highlight {
-      background-color: yellow;
+      background: yellow;
     }
   </style>
 </head>
 <body>
   <div class="container">
     <div id="editor" contenteditable="true"></div>
+    <div id="cursor" class="cursor"></div>
   </div>
-  <div id="status">Stav připojení: Neznámý</div>
-  <div id="user-list">Uživatelé: </div>
 
   <script>
-    const ws = new WebSocket("ws://3.127.66.88:8080");
+    const ws = new WebSocket('ws://3.127.66.88:8080');
     const editor = document.getElementById('editor');
-    const statusDiv = document.getElementById('status');
-    const userListDiv = document.getElementById('user-list');
-    let cursorElement = document.createElement('div');
-    cursorElement.classList.add('cursor');
-    document.body.appendChild(cursorElement);
+    const cursor = document.getElementById('cursor');
+    const userId = Date.now(); // Unikátní ID pro uživatele
 
-    // Načíst počáteční data po připojení
+    // Inicializace WebSocket
     ws.onopen = () => {
-      console.log("Připojeno k serveru");
-      statusDiv.textContent = "Stav připojení: Aktivní";
+      console.log('Připojeno k serveru');
     };
 
-    // Příjem zpráv od serveru
+    // Zpracování příchozích zpráv
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
-
-      if (data.type === "init") {
-        editor.innerHTML = data.content; // Načtení počátečního obsahu
-        updateUserList(data.users); // Aktualizace seznamu uživatelů
-      } else if (data.type === "textUpdate") {
-        editor.innerHTML = data.content; // Aktualizace textu
-      } else if (data.type === "cursorUpdate") {
-        updateCursor(data.cursor);
-      } else if (data.type === "selectionUpdate") {
-        highlightSelection(data.selection);
-      } else if (data.type === "userDisconnect") {
-        updateUserList(Object.keys(data.users));
+      switch (data.type) {
+        case 'textUpdate':
+          editor.innerHTML = data.content;
+          break;
+        case 'cursorUpdate':
+          updateCursor(data.cursor);
+          break;
+        case 'selectionUpdate':
+          highlightSelection(data.selection);
+          break;
+        default:
+          break;
       }
     };
 
-    // Odeslání změn textu
-    editor.addEventListener("input", () => {
+    // Funkce pro posílání změn na server
+    editor.addEventListener('input', () => {
       const content = editor.innerHTML;
-      ws.send(JSON.stringify({ type: "textUpdate", content }));
+      ws.send(JSON.stringify({ type: 'textUpdate', content }));
     });
 
-    // Odeslání pohybu kurzoru
-    editor.addEventListener("mousemove", (e) => {
-      const cursor = { x: e.clientX, y: e.clientY };
-      ws.send(JSON.stringify({ type: "cursorMove", cursor }));
+    // Funkce pro sledování pohybu myši
+    editor.addEventListener('mousemove', (e) => {
+      const cursorPosition = { x: e.clientX, y: e.clientY };
+      ws.send(JSON.stringify({ type: 'cursorUpdate', cursor: cursorPosition }));
     });
 
-    // Odeslání změny označení textu
-    editor.addEventListener("select", () => {
+    // Funkce pro sledování změny výběru textu
+    editor.addEventListener('select', () => {
       const selection = window.getSelection();
       const selectedText = selection.toString();
-
       if (selectedText) {
         const selectionData = {
           start: selection.anchorOffset,
           end: selection.focusOffset,
           text: selectedText
         };
-        ws.send(JSON.stringify({ type: "selectionUpdate", selection: selectionData }));
+        ws.send(JSON.stringify({ type: 'selectionUpdate', selection: selectionData }));
       }
     });
 
-    // Funkce pro zobrazení kurzoru ostatních uživatelů
-    function updateCursor(cursor) {
-      cursorElement.style.left = `${cursor.x}px`;
-      cursorElement.style.top = `${cursor.y}px`;
+    // Funkce pro aktualizaci pozice kurzoru
+    function updateCursor(cursorPosition) {
+      cursor.style.left = `${cursorPosition.x}px`;
+      cursor.style.top = `${cursorPosition.y}px`;
     }
 
-    // Funkce pro zvýraznění označeného textu
+    // Funkce pro zvýraznění textu na základě informace od serveru
     function highlightSelection(selection) {
-      const ranges = window.getSelection().getRangeAt(0);
-      const span = document.createElement("span");
-      span.classList.add("highlight");
-      ranges.surroundContents(span);
-    }
+      const range = new Range();
+      const selectionData = window.getSelection();
+      const startContainer = editor.childNodes[0];
+      const startOffset = selection.start;
+      const endOffset = selection.end;
 
-    // Aktualizace seznamu uživatelů
-    function updateUserList(users) {
-      userListDiv.innerHTML = "Uživatelé: " + users.join(", ");
+      range.setStart(startContainer, startOffset);
+      range.setEnd(startContainer, endOffset);
+      const span = document.createElement('span');
+      span.className = 'highlight';
+      range.surroundContents(span);
     }
-
-    // Při ztrátě připojení
-    ws.onclose = () => {
-      console.log("Spojení se serverem bylo přerušeno.");
-      statusDiv.textContent = "Stav připojení: Neaktivní";
-    };
   </script>
 </body>
 </html>
