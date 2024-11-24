@@ -15,7 +15,6 @@ app.use(express.static(__dirname));
 // WebSocket logika
 wss.on("connection", (ws) => {
   const userId = Date.now(); // Unikátní ID pro uživatele
-  console.log(`Uživatel připojen: ${userId}`);
   clients[userId] = { cursor: { x: 0, y: 0 }, ws: ws, selection: null };
 
   // Poslat počáteční data klientovi
@@ -23,7 +22,7 @@ wss.on("connection", (ws) => {
     JSON.stringify({
       type: "init",
       content: documentContent,
-      users: Object.keys(clients), // Seznam připojených uživatelů
+      users: Object.keys(clients),
     })
   );
 
@@ -39,7 +38,7 @@ wss.on("connection", (ws) => {
         clients[userId].cursor = data.cursor; // Aktualizace pozice kurzoru
         broadcast({ type: "cursorUpdate", userId, cursor: data.cursor }, ws);
       } else if (data.type === "selectionUpdate") {
-        clients[userId].selection = data.selection; // Uložení označení textu
+        clients[userId].selection = data.selection; // Aktualizace výběru textu
         broadcast({ type: "selectionUpdate", userId, selection: data.selection }, ws);
       }
     } catch (err) {
@@ -49,7 +48,6 @@ wss.on("connection", (ws) => {
 
   // Při odpojení klienta
   ws.on("close", () => {
-    console.log(`Uživatel odpojen: ${userId}`);
     delete clients[userId];
     broadcast({ type: "userDisconnect", userId });
   });
