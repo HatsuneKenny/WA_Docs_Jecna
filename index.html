@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <title>Collaborative Document Editor</title>
   <style>
-    /* Stylování editoru, kurzoru a zvýrazněného textu */
     body {
       font-family: 'Arial', sans-serif;
       margin: 0;
@@ -93,7 +92,7 @@
     // Funkce pro sledování pohybu myši
     editor.addEventListener('mousemove', (e) => {
       const cursorPosition = { x: e.clientX, y: e.clientY };
-      ws.send(JSON.stringify({ type: 'cursorUpdate', cursor: cursorPosition }));
+      ws.send(JSON.stringify({ type: 'cursorMove', cursor: cursorPosition }));
     });
 
     // Funkce pro sledování změny výběru textu
