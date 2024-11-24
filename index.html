@@ -1,52 +1,59 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ječná Docs</title>
-    <style>
-        body { font-family: Arial, sans-serif; }
-        textarea { width: 100%; height: 80vh; }
-        #users { margin-top: 20px; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ječná Docs</title>
+  <style>
+    #editor { width: 80%; height: 300px; border: 1px solid #ccc; padding: 10px; }
+    #status { margin-top: 10px; font-size: 14px; }
+    .cursor { position: absolute; background: rgba(0, 0, 255, 0.5); height: 20px; width: 2px; }
+  </style>
 </head>
 <body>
-    <h1>Ječná Docs</h1>
-    <textarea id="document" placeholder="Začněte psát..."></textarea>
-    <div id="users">Připojení uživatelé: <span id="user-list"></span></div>
+  <h1>Ječná Docs</h1>
+  <div id="status">Status: Disconnected</div>
+  <div contenteditable="true" id="editor"></div>
 
-    <script>
-        const ws = new WebSocket("ws://localhost:8080");
-        const textarea = document.getElementById("document");
-        const userList = document.getElementById("user-list");
+  <script>
+    const ws = new WebSocket("ws://<vaše veřejná IP>:8080");
 
-        let userId;
+    const editor = document.getElementById("editor");
+    const status = document.getElementById("status");
 
-        ws.onopen = () => console.log("Připojeno k serveru.");
+    ws.onopen = () => { status.textContent = "Status: Connected"; };
+    ws.onclose = () => { status.textContent = "Status: Disconnected"; };
 
-        ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
+    // Příjem zpráv od serveru
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
 
-            if (data.type === "init") {
-                textarea.value = data.text;
-                userList.textContent = data.users.join(", ");
-            }
+      switch (data.type) {
+        case "init":
+          editor.textContent = data.content;
+          break;
+        case "textUpdate":
+          editor.textContent = data.content;
+          break;
+        case "cursorUpdate":
+          console.log(`Uživatel ${data.userId} posunul kurzor na:`, data.cursor);
+          break;
+        default:
+          console.log("Unknown message type:", data);
+      }
+    };
 
-            if (data.type === "text-update") {
-                textarea.value = data.text;
-            }
+    // Odeslání změny textu
+    editor.addEventListener("input", () => {
+      const content = editor.textContent;
+      ws.send(JSON.stringify({ type: "textUpdate", content }));
+    });
 
-            if (data.type === "user-disconnect") {
-                userList.textContent = userList.textContent.replace(`${data.userId}, `, "");
-            }
-        };
-
-        ws.onclose = () => console.log("Odpojeno od serveru.");
-
-        textarea.addEventListener("input", () => {
-            const text = textarea.value;
-            ws.send(JSON.stringify({ type: "text-update", text }));
-        });
-    </script>
+    // Odeslání pohybu kurzoru (zjednodušeno)
+    editor.addEventListener("click", (e) => {
+      const cursor = { x: e.pageX, y: e.pageY };
+      ws.send(JSON.stringify({ type: "cursorMove", cursor }));
+    });
+  </script>
 </body>
 </html>
