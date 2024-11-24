@@ -3,38 +3,58 @@ const http = require("http");
 const WebSocket = require("ws");
 
 const app = express();
-const PORT = 8080;
-
-// Slouží statické soubory z adresáře 'public'
-app.use(express.static("public"));
-
-// Vytvoření HTTP serveru
 const server = http.createServer(app);
-
-// Nastavení WebSocket serveru
 const wss = new WebSocket.Server({ server });
 
-// WebSocket logika
+let documentContent = ""; // Sdílený text dokumentu
+let clients = {}; // Ukládá data o připojených uživatelích
+
 wss.on("connection", (ws) => {
-    console.log("Nový WebSocket klient připojen.");
+  // Připojení nového uživatele
+  const userId = Date.now(); // Jednoduché ID
+  clients[userId] = { cursor: { x: 0, y: 0 } };
+  
+  // Poslat počáteční stav dokumentu a seznam uživatelů
+  ws.send(JSON.stringify({ type: "init", content: documentContent, users: Object.keys(clients) }));
 
-    ws.on("message", (message) => {
-        console.log("Přijatá zpráva od klienta:", message);
+  // Zprávy od klienta
+  ws.on("message", (message) => {
+    const data = JSON.parse(message);
+    
+    switch (data.type) {
+      case "textUpdate":
+        documentContent = data.content;
+        broadcast({ type: "textUpdate", content: documentContent });
+        break;
 
-        // Distribuce zprávy všem klientům
-        wss.clients.forEach((client) => {
-            if (client.readyState === WebSocket.OPEN) {
-                client.send(message);
-            }
-        });
-    });
+      case "cursorMove":
+        clients[userId].cursor = data.cursor;
+        broadcast({ type: "cursorUpdate", userId, cursor: data.cursor });
+        break;
 
-    ws.on("close", () => {
-        console.log("Klient odpojen.");
-    });
+      default:
+        console.log("Unknown message type:", data.type);
+    }
+  });
+
+  // Odpojení uživatele
+  ws.on("close", () => {
+    delete clients[userId];
+    broadcast({ type: "userDisconnect", userId });
+  });
 });
 
-// Server naslouchá na všech IP adresách
-server.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server běží na http://0.0.0.0:${PORT}`);
+// Rozesílání zpráv všem klientům
+function broadcast(data) {
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify(data));
+    }
+  });
+}
+
+app.use(express.static("public"));
+
+server.listen(8080, () => {
+  console.log("Server běží na http://0.0.0.0:8080");
 });
