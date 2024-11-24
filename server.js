@@ -9,21 +9,27 @@ const wss = new WebSocket.Server({ server });
 let documentContent = ""; // Text dokumentu
 const clients = {}; // Klienti a jejich kurzory
 
+const userNames = ["BigBoy", "LittlePookie", "CoolCat", "SmartCookie", "FastFingers"]; // Přednastavená jména
+let userIndex = 0; // Index pro přiřazování jmen
+
 // Statické soubory (např. index.html)
 app.use(express.static(__dirname));
 
 // WebSocket logika
 wss.on("connection", (ws) => {
   const userId = Date.now(); // Unikátní ID pro uživatele
-  console.log(`Uživatel připojen: ${userId}`);
-  clients[userId] = { cursor: { x: 0, y: 0 }, ws: ws };
+  const userName = userNames[userIndex % userNames.length]; // Přiřadí jméno z pole
+  userIndex++; // Zvyšuje index pro dalšího uživatele
+
+  console.log(`Uživatel připojen: ${userName}`);
+  clients[userId] = { userName, cursor: { x: 0, y: 0 }, ws: ws };
 
   // Poslat počáteční data klientovi
   ws.send(
     JSON.stringify({
       type: "init",
       content: documentContent,
-      users: Object.keys(clients), // Seznam připojených uživatelů
+      users: Object.values(clients).map(client => client.userName), // Seznam připojených uživatelů s jmény
     })
   );
 
@@ -49,7 +55,7 @@ wss.on("connection", (ws) => {
 
   // Při odpojení klienta
   ws.on("close", () => {
-    console.log(`Uživatel odpojen: ${userId}`);
+    console.log(`Uživatel odpojen: ${userName}`);
     delete clients[userId];
     broadcast({ type: "userDisconnect", userId });
   });
