@@ -55,6 +55,9 @@
       margin-top: 10px;
       font-size: 14px;
     }
+    .highlight {
+      background-color: yellow;
+    }
   </style>
 </head>
 <body>
@@ -90,6 +93,8 @@
         editor.innerHTML = data.content; // Aktualizace textu
       } else if (data.type === "cursorUpdate") {
         updateCursor(data.cursor);
+      } else if (data.type === "selectionUpdate") {
+        highlightSelection(data.selection);
       } else if (data.type === "userDisconnect") {
         updateUserList(Object.keys(data.users));
       }
@@ -107,10 +112,33 @@
       ws.send(JSON.stringify({ type: "cursorMove", cursor }));
     });
 
+    // Odeslání změny označení textu
+    editor.addEventListener("select", () => {
+      const selection = window.getSelection();
+      const selectedText = selection.toString();
+
+      if (selectedText) {
+        const selectionData = {
+          start: selection.anchorOffset,
+          end: selection.focusOffset,
+          text: selectedText
+        };
+        ws.send(JSON.stringify({ type: "selectionUpdate", selection: selectionData }));
+      }
+    });
+
     // Funkce pro zobrazení kurzoru ostatních uživatelů
     function updateCursor(cursor) {
       cursorElement.style.left = `${cursor.x}px`;
       cursorElement.style.top = `${cursor.y}px`;
+    }
+
+    // Funkce pro zvýraznění označeného textu
+    function highlightSelection(selection) {
+      const ranges = window.getSelection().getRangeAt(0);
+      const span = document.createElement("span");
+      span.classList.add("highlight");
+      ranges.surroundContents(span);
     }
 
     // Aktualizace seznamu uživatelů
