@@ -91,7 +91,7 @@
       } else if (data.type === "cursorUpdate") {
         updateCursor(data.cursor);
       } else if (data.type === "userDisconnect") {
-        updateUserList(Object.keys(data.users));
+        updateUserList(Object.values(data.users));
       }
     };
 
