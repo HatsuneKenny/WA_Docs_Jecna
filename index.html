@@ -12,9 +12,10 @@
       background-color: #f5f5f5;
       display: flex;
       justify-content: center;
-      align-items: center;
+      align-items: flex-start;
       height: 100vh;
       overflow: hidden;
+      flex-direction: column;
     }
     .container {
       width: 80%;
@@ -46,16 +47,28 @@
       background-color: red;
       pointer-events: none;
     }
+    #status {
+      margin-top: 20px;
+      font-size: 14px;
+    }
+    #user-list {
+      margin-top: 10px;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <div id="editor" contenteditable="true"></div>
   </div>
+  <div id="status">Stav připojení: Neznámý</div>
+  <div id="user-list">Uživatelé: </div>
 
   <script>
     const ws = new WebSocket("ws://3.127.66.88:8080");
     const editor = document.getElementById('editor');
+    const statusDiv = document.getElementById('status');
+    const userListDiv = document.getElementById('user-list');
     let cursorElement = document.createElement('div');
     cursorElement.classList.add('cursor');
     document.body.appendChild(cursorElement);
@@ -63,6 +76,7 @@
     // Načíst počáteční data po připojení
     ws.onopen = () => {
       console.log("Připojeno k serveru");
+      statusDiv.textContent = "Stav připojení: Aktivní";
     };
 
     // Příjem zpráv od serveru
@@ -71,10 +85,13 @@
 
       if (data.type === "init") {
         editor.innerHTML = data.content; // Načtení počátečního obsahu
+        updateUserList(data.users); // Aktualizace seznamu uživatelů
       } else if (data.type === "textUpdate") {
         editor.innerHTML = data.content; // Aktualizace textu
       } else if (data.type === "cursorUpdate") {
         updateCursor(data.cursor);
+      } else if (data.type === "userDisconnect") {
+        updateUserList(Object.keys(data.users));
       }
     };
 
@@ -95,6 +112,17 @@
       cursorElement.style.left = `${cursor.x}px`;
       cursorElement.style.top = `${cursor.y}px`;
     }
+
+    // Aktualizace seznamu uživatelů
+    function updateUserList(users) {
+      userListDiv.innerHTML = "Uživatelé: " + users.join(", ");
+    }
+
+    // Při ztrátě připojení
+    ws.onclose = () => {
+      console.log("Spojení se serverem bylo přerušeno.");
+      statusDiv.textContent = "Stav připojení: Neaktivní";
+    };
   </script>
 </body>
 </html>
