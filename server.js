@@ -16,14 +16,14 @@ app.use(express.static(__dirname));
 wss.on("connection", (ws) => {
   const userId = Date.now(); // Unikátní ID pro uživatele
   console.log(`Uživatel připojen: ${userId}`);
-  clients[userId] = { cursor: { x: 0, y: 0 } };
+  clients[userId] = { cursor: { x: 0, y: 0 }, ws: ws };
 
   // Poslat počáteční data klientovi
   ws.send(
     JSON.stringify({
       type: "init",
       content: documentContent,
-      users: Object.keys(clients),
+      users: Object.keys(clients), // Seznam připojených uživatelů
     })
   );
 
