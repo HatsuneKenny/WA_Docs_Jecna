@@ -16,7 +16,7 @@ app.use(express.static(__dirname));
 wss.on("connection", (ws) => {
   const userId = Date.now(); // Unikátní ID pro uživatele
   console.log(`Uživatel připojen: ${userId}`);
-  clients[userId] = { cursor: { x: 0, y: 0 }, ws: ws };
+  clients[userId] = { cursor: { x: 0, y: 0 }, ws: ws, selection: null };
 
   // Poslat počáteční data klientovi
   ws.send(
@@ -37,10 +37,10 @@ wss.on("connection", (ws) => {
         broadcast({ type: "textUpdate", content: documentContent }, ws);
       } else if (data.type === "cursorMove") {
         clients[userId].cursor = data.cursor; // Aktualizace pozice kurzoru
-        broadcast(
-          { type: "cursorUpdate", userId, cursor: data.cursor },
-          ws
-        );
+        broadcast({ type: "cursorUpdate", userId, cursor: data.cursor }, ws);
+      } else if (data.type === "selectionUpdate") {
+        clients[userId].selection = data.selection; // Uložení označení textu
+        broadcast({ type: "selectionUpdate", userId, selection: data.selection }, ws);
       }
     } catch (err) {
       console.error("Chyba při zpracování zprávy:", err);
