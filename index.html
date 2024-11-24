@@ -2,127 +2,73 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Live Document</title>
+  <title>Collaborative Document Editor</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      background-color: #f5f5f5;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      height: 100vh;
-      overflow: hidden;
-      flex-direction: column;
-    }
-    .container {
-      width: 80%;
-      max-width: 800px;
-      height: 80%;
-      background-color: white;
-      border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-      overflow-y: auto;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-    }
-    #editor {
-      width: 100%;
-      height: 100%;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      padding: 10px;
-      box-sizing: border-box;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-      font-family: "Courier New", Courier, monospace;
-    }
-    .cursor {
-      position: absolute;
-      width: 2px;
-      height: 20px;
-      background-color: red;
-      pointer-events: none;
-    }
-    #status {
-      margin-top: 20px;
-      font-size: 14px;
-    }
-    #user-list {
-      margin-top: 10px;
-      font-size: 14px;
-    }
+    /* Style definitions */
   </style>
 </head>
 <body>
   <div class="container">
-    <div id="editor" contenteditable="true"></div>
+    <textarea id="editor" placeholder="Začněte psát..."></textarea>
   </div>
-  <div id="status">Stav připojení: Neznámý</div>
-  <div id="user-list">Uživatelé: </div>
-
+  
   <script>
-    const ws = new WebSocket("ws://3.127.66.88:8080");
-    const editor = document.getElementById('editor');
-    const statusDiv = document.getElementById('status');
-    const userListDiv = document.getElementById('user-list');
-    let cursorElement = document.createElement('div');
-    cursorElement.classList.add('cursor');
-    document.body.appendChild(cursorElement);
+    const ws = new WebSocket("ws://localhost:8080");
+    const editor = document.getElementById("editor");
+    let reconnecting = false;
 
-    // Načíst počáteční data po připojení
+    // Obnova dat z localStorage při opětovném připojení
+    if (localStorage.getItem("documentContent")) {
+      editor.value = localStorage.getItem("documentContent");
+    }
+
     ws.onopen = () => {
-      console.log("Připojeno k serveru");
-      statusDiv.textContent = "Stav připojení: Aktivní";
+      reconnecting = false;
+      console.log("Server připojen");
+      sendTextUpdate();
+    };
+
+    ws.onclose = () => {
+      reconnecting = true;
+      console.log("Server odpojen");
     };
 
     // Příjem zpráv od serveru
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
-
-      if (data.type === "init") {
-        editor.innerHTML = data.content; // Načtení počátečního obsahu
-        updateUserList(data.users); // Aktualizace seznamu uživatelů
-      } else if (data.type === "textUpdate") {
-        editor.innerHTML = data.content; // Aktualizace textu
-      } else if (data.type === "cursorUpdate") {
-        updateCursor(data.cursor);
-      } else if (data.type === "userDisconnect") {
-        updateUserList(Object.keys(data.users));
+      if (data.type === "textUpdate") {
+        editor.value = data.content; // Aktualizace obsahu dokumentu
       }
     };
 
-    // Odeslání změn textu
+    // Funkce pro odesílání aktualizace textu
+    function sendTextUpdate() {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(
+          JSON.stringify({
+            type: "textUpdate",
+            content: editor.value,
+          })
+        );
+        localStorage.setItem("documentContent", editor.value); // Uložení změn do localStorage
+      }
+    }
+
+    // Sledování změn v textovém poli
     editor.addEventListener("input", () => {
-      const content = editor.innerHTML;
-      ws.send(JSON.stringify({ type: "textUpdate", content }));
+      if (reconnecting) {
+        localStorage.setItem("documentContent", editor.value); // Uložení změn při výpadku
+      } else {
+        sendTextUpdate();
+      }
     });
 
-    // Odeslání pohybu kurzoru
-    editor.addEventListener("mousemove", (e) => {
-      const cursor = { x: e.clientX, y: e.clientY };
-      ws.send(JSON.stringify({ type: "cursorMove", cursor }));
+    // Obnova při připojení zpět
+    window.addEventListener("load", () => {
+      if (localStorage.getItem("documentContent")) {
+        editor.value = localStorage.getItem("documentContent"); // Obnova dat při připojení
+      }
     });
-
-    // Funkce pro zobrazení kurzoru ostatních uživatelů
-    function updateCursor(cursor) {
-      cursorElement.style.left = `${cursor.x}px`;
-      cursorElement.style.top = `${cursor.y}px`;
-    }
-
-    // Aktualizace seznamu uživatelů
-    function updateUserList(users) {
-      userListDiv.innerHTML = "Uživatelé: " + users.join(", ");
-    }
-
-    // Při ztrátě připojení
-    ws.onclose = () => {
-      console.log("Spojení se serverem bylo přerušeno.");
-      statusDiv.textContent = "Stav připojení: Neaktivní";
-    };
   </script>
 </body>
 </html>
