@@ -40,13 +40,17 @@
       word-wrap: break-word;
       font-family: "Courier New", Courier, monospace;
     }
-    .cursor {
-      position: absolute;
-      width: 2px;
-      height: 20px;
-      background-color: red;
-      pointer-events: none;
-    }
+   .cursor {
+  position: absolute;
+  width: 15px; /* Šířka kurzoru */
+  height: 15px; /* Výška kurzoru */
+  background-color: #ff0000; /* Barva kurzoru */
+  border-radius: 50%; /* Kulatý kurzor */
+  pointer-events: none; /* Zajištění, že kurzor nebude ovlivňovat interakce s textem */
+  transition: transform 0.2s ease; /* Plynulý přechod pro animaci pohybu */
+  transform: translate(-50%, -50%); /* Umožní centrování kurzoru na aktuální pozici */
+}
+
     #status {
       margin-top: 20px;
       font-size: 14px;
