@@ -71,7 +71,7 @@ function broadcast(data, excludeWs) {
 }
 
 // Spuštění serveru
-const PORT = 3306;
+const PORT = 8080;
 server.listen(PORT, () => {
   console.log(`Server běží na http://0.0.0.0:${PORT}`);
 });
